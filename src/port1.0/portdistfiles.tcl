@@ -47,12 +47,11 @@ namespace eval portdistfiles {
 set_ui_prefix
 
 proc portdistfiles::distfiles_start {args} {
-    global UI_PREFIX subport
-    ui_notice "$UI_PREFIX [format [msgcat::mc "Distfiles for %s"] ${subport}]"
+    ui_notice "$::UI_PREFIX [format [msgcat::mc "Distfiles for %s"] ${::subport}]"
 }
 
 proc portdistfiles::distfiles_main {args} {
-    global UI_PREFIX master_sites patch_sites patchfiles checksums_array \
+    global master_sites patch_sites patchfiles checksums_array \
            portdbpath dist_subdir all_dist_files
     
     # give up on ports that do not provide URLs

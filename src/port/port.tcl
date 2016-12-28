@@ -48,29 +48,26 @@ package require Pextlib 1.0
 
 # Standard procedures
 proc print_usage {{verbose 1}} {
-    global cmdname
     set syntax {
         [-bcdfknopqRstuvy] [-D portdir] [-F cmdfile] action [privopts] [actionflags]
         [[portname|pseudo-portname|port-url] [@version] [+-variant]... [option=value]...]...
     }
 
     if {$verbose} {
-        puts stderr "Usage: $cmdname$syntax"
-        puts stderr "\"$cmdname help\" or \"man 1 port\" for more information."
+        puts stderr "Usage: $::cmdname$syntax"
+        puts stderr "\"$::cmdname help\" or \"man 1 port\" for more information."
     } else {
-        puts stderr "$cmdname$syntax"
+        puts stderr "$::cmdname$syntax"
     }
 }
 
 proc print_help {args} {
-    global action_array
-
     print_usage 0
 
     # Generate and format the command list from the action_array
     set cmds ""
     set lineLen 0
-    foreach cmd [lsort [array names action_array]] {
+    foreach cmd [lsort [array names :action_array]] {
         if {$lineLen > 65} {
             set cmds "$cmds,\n"
             set lineLen 0
@@ -132,8 +129,7 @@ porthier(7), portstyle(7). Also, see https://www.macports.org.
 
 # Produce error message and exit
 proc fatal s {
-    global argv0
-    ui_error "$argv0: $s"
+    ui_error "${::argv0}: $s"
     exit 1
 }
 
@@ -282,8 +278,6 @@ proc registry_installed {portname {portversion ""}} {
 }
 
 proc entry_for_portlist {portentry} {
-    global global_options global_variations
-
     # Each portlist entry currently has the following elements in it:
     #   url             if any
     #   name
@@ -299,7 +293,7 @@ proc entry_for_portlist {portentry} {
     if {![info exists port(version)]}   { set port(version) "" }
     if {![info exists port(variants)]}  { set port(variants) "" }
     if {![info exists port(requested_variants)]}  { set port(requested_variants) "" }
-    if {![info exists port(options)]}   { set port(options) [array get global_options] }
+    if {![info exists port(options)]}   { set port(options) [array get ::global_options] }
 
     # If neither portname nor url is specified, then default to the current port
     if { $port(url) eq "" && $port(name) eq "" } {
@@ -366,11 +360,10 @@ proc url_to_portname { url {quiet 0} } {
 
 # Supply a default porturl/portname if the portlist is empty
 proc require_portlist { nameportlist {is_upgrade "no"} } {
-    global private_options
     upvar $nameportlist portlist
 
-    if {[llength $portlist] == 0 && (![info exists private_options(ports_no_args)] || $private_options(ports_no_args) eq "no")} {
-        if {${is_upgrade} == "yes"} {
+    if {[llength $portlist] == 0 && (![info exists ::private_options(ports_no_args)] || $::private_options(ports_no_args) eq "no")} {
+        if {${is_upgrade} eq "yes"} {
             # $> port upgrade outdated
             # Error: No ports matched the given expression
             # is not very user friendly - if we're in the special case of
@@ -546,14 +539,12 @@ proc term_init_size {} {
 # @param indent prepend to every line
 # @return wrapped string
 proc wrap {string maxlen {indent ""} {indentfirstline 1}} {
-    global env
-
     if {$maxlen == 0} {
-        if {![info exists env(COLUMNS)]} {
+        if {![info exists ::env(COLUMNS)]} {
             # no width for wrapping
             return $string
         }
-        set maxlen $env(COLUMNS)
+        set maxlen $::env(COLUMNS)
     }
 
     set splitstring {}
@@ -575,14 +566,12 @@ proc wrap {string maxlen {indent ""} {indentfirstline 1}} {
 # @param indent prepend to every line
 # @return wrapped string
 proc wrapline {line maxlen {indent ""} {indentfirstline 1}} {
-    global env
-
     if {$maxlen == 0} {
-        if {![info exists env(COLUMNS)]} {
+        if {![info exists ::env(COLUMNS)]} {
             # no width for wrapping
             return $string
         }
-        set maxlen $env(COLUMNS)
+        set maxlen $::env(COLUMNS)
     }
 
     set string [split $line " "]
@@ -654,8 +643,7 @@ proc unique_results_to_portlist {infos} {
 
 proc get_matching_ports {pattern {casesensitive no} {matchstyle glob} {field name}} {
     if {[catch {set res [mportsearch $pattern $casesensitive $matchstyle $field]} result]} {
-        global errorInfo
-        ui_debug "$errorInfo"
+        ui_debug "$::errorInfo"
         fatal "search for portname $pattern failed: $result"
     }
     set results [unique_results_to_portlist $res]
@@ -666,18 +654,15 @@ proc get_matching_ports {pattern {casesensitive no} {matchstyle glob} {field nam
 
 
 proc get_all_ports {} {
-    global all_ports_cache
-
-    if {![info exists all_ports_cache]} {
+    if {![info exists ::all_ports_cache]} {
          if {[catch {set res [mportlistall]} result]} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "listing all ports failed: $result"
         }
         set results [unique_results_to_portlist $res]
-        set all_ports_cache [portlist_sort $results]
+        set ::all_ports_cache [portlist_sort $results]
     }
-    return $all_ports_cache
+    return $::all_ports_cache
 }
 
 
@@ -706,8 +691,7 @@ proc get_installed_ports { {ignore_active yes} {active yes} } {
     set ilist {}
     if { [catch {set ilist [registry::installed]} result] } {
         if {$result ne "Registry error: No ports registered as installed."} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "port installed failed: $result"
         }
     }
@@ -720,7 +704,7 @@ proc get_installed_ports { {ignore_active yes} {active yes} } {
         set ivariants [split_variants [lindex $i 3]]
         set iactive [lindex $i 4]
 
-        if { ${ignore_active} == "yes" || (${active} == "yes") == (${iactive} != 0) } {
+        if { ${ignore_active} eq "yes" || (${active} eq "yes") == (${iactive} != 0) } {
             add_to_portlist results [list name $iname version "${iversion}_${irevision}" variants $ivariants]
         }
     }
@@ -781,8 +765,7 @@ proc get_outdated_ports {} {
     set ilist {}
     if { [catch {set ilist [registry::installed]} result] } {
         if {$result ne "Registry error: No ports registered as installed."} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "port installed failed: $result"
         }
     }
@@ -806,8 +789,7 @@ proc get_outdated_ports {} {
 
             # Get info about the port from the index
             if {[catch {set res [mportlookup $portname]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 fatal "lookup of portname $portname failed: $result"
             }
             if {[llength $res] < 2} {
@@ -833,7 +815,7 @@ proc get_outdated_ports {} {
 
             # Compare versions, first checking epoch, then version, then revision
             set comp_result 0
-            if {$installed_version != $latest_version} {
+            if {$installed_version ne $latest_version} {
                 set comp_result [expr {$installed_epoch - $latest_epoch}]
                 if { $comp_result == 0 } {
                     set comp_result [vercmp $installed_version $latest_version]
@@ -848,7 +830,7 @@ proc get_outdated_ports {} {
                 set os_major_installed [registry::property_retrieve $regref os_major]
                 if {$os_platform_installed ne "" && $os_platform_installed != 0
                     && $os_major_installed ne "" && $os_major_installed != 0
-                    && ($os_platform_installed != ${macports::os_platform} || $os_major_installed != ${macports::os_major})} {
+                    && ($os_platform_installed ne ${macports::os_platform} || $os_major_installed ne ${macports::os_major})} {
                     set comp_result -1
                 }
             }
@@ -890,8 +872,7 @@ proc get_ports_with_prop {propname propval} {
     set ilist {}
     if { [catch {set ilist [registry::installed]} result] } {
         if {$result ne "Registry error: No ports registered as installed."} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "port installed failed: $result"
         }
     }
@@ -904,7 +885,7 @@ proc get_ports_with_prop {propname propval} {
         set ivariants [lindex $i 3]
         set iepoch [lindex $i 5]
         set regref [registry::open_entry $iname $iversion $irevision $ivariants $iepoch]
-        if {[registry::property_retrieve $regref $propname] == $propval} {
+        if {[registry::property_retrieve $regref $propname] eq $propval} {
             add_to_portlist results [list name $iname version "${iversion}_${irevision}" variants [split_variants $ivariants]]
         }
     }
@@ -925,8 +906,7 @@ proc get_leaves_ports {} {
     set ilist {}
     if { [catch {set ilist [registry::installed]} result] } {
         if {$result ne "Registry error: No ports registered as installed."} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "port installed failed: $result"
         }
     }
@@ -1019,8 +999,6 @@ proc get_rdepends_ports {portname} {
 
 
 proc get_dep_ports {portname recursive} {
-    global global_variations
-
     # look up portname
     if {[catch {mportlookup $portname} result]} {
         ui_debug "$::errorInfo"
@@ -1034,7 +1012,7 @@ proc get_dep_ports {portname recursive} {
     set porturl $portinfo(porturl)
 
     # open portfile
-    if {[catch {set mport [mportopen $porturl [list subport $portinfo(name)] [array get global_variations]]} result]} {
+    if {[catch {set mport [mportopen $porturl [list subport $portinfo(name)] [array get ::global_variations]]} result]} {
         ui_debug "$::errorInfo"
         return -code error "Unable to open port: $result"
     }
@@ -1058,6 +1036,7 @@ proc get_dep_ports {portname recursive} {
 
     # actually do this iteratively to avoid hitting Tcl's recursion limit
     if {$recursive} {
+        global global_variations
         while 1 {
             set rportlist {}
             set newlist {}
@@ -1120,8 +1099,6 @@ proc get_dep_ports {portname recursive} {
 }
 
 proc get_subports {portname} {
-    global global_variations
-
     # look up portname
     if {[catch {mportlookup $portname} result]} {
         ui_debug "$::errorInfo"
@@ -1135,7 +1112,7 @@ proc get_subports {portname} {
     set porturl $portinfo(porturl)
 
     # open portfile
-    if {[catch {set mport [mportopen $porturl [list subport $portinfo(name)] [array get global_variations]]} result]} {
+    if {[catch {set mport [mportopen $porturl [list subport $portinfo(name)] [array get ::global_variations]]} result]} {
         ui_debug "$::errorInfo"
         return -code error "Unable to open port: $result"
     }
@@ -1533,7 +1510,7 @@ proc opIntersection { a b } {
         # Quote the fullname and portname to avoid special characters messing up the regexp
         set safefullname [regex_pat_sanitize $port(fullname)]
 
-        set simpleform [expr { "$port(name)/" == $port(fullname) }]
+        set simpleform [expr { "$port(name)/" eq $port(fullname) }]
         if {$simpleform} {
             set pat "^${safefullname}"
         } else {
@@ -1577,7 +1554,7 @@ proc opComplement { a b } {
         # Quote the fullname and portname to avoid special characters messing up the regexp
         set safefullname [regex_pat_sanitize $port(fullname)]
 
-        set simpleform [expr { "$port(name)/" == $port(fullname) }]
+        set simpleform [expr { "$port(name)/" eq $port(fullname) }]
         if {$simpleform} {
             set pat "^${safefullname}"
         } else {
@@ -1651,8 +1628,7 @@ proc parseFullPortSpec { urlname namename vername varname optname } {
 # check if the install prefix is writable
 # should be called by actions that will modify it
 proc prefix_unwritable {} {
-    global macports::portdbpath
-    if {[file writable $portdbpath]} {
+    if {[file writable $macports::portdbpath]} {
         return 0
     } else {
         ui_error "Insufficient privileges to write to MacPorts install prefix."
@@ -1666,11 +1642,9 @@ proc parsePortSpec { vername varname optname {remainder ""} } {
     upvar $varname portvariants
     upvar $optname portoptions
 
-    global global_options
-
     set portversion ""
     array unset portoptions
-    array set portoptions [array get global_options]
+    array set portoptions [array get ::global_options]
     array unset portvariants
 
     # Parse port version/variants/options
@@ -1743,12 +1717,10 @@ proc parsePortSpec { vername varname optname {remainder ""} } {
 ##########################################
 
 proc action_get_usage { action } {
-    global action_array cmd_opts_array
-
-    if {[info exists action_array($action)]} {
+    if {[info exists ::action_array($action)]} {
         set cmds ""
-        if {[info exists cmd_opts_array($action)]} {
-            foreach opt $cmd_opts_array($action) {
+        if {[info exists ::cmd_opts_array($action)]} {
+            foreach opt $::cmd_opts_array($action) {
                 if {[llength $opt] == 1} {
                     set name $opt
                     set optc 0
@@ -1845,7 +1817,7 @@ proc action_help { action portlist opts } {
         set pagepath ${macports::prefix}/share/man/$page
     }
 
-    if {$pagepath != ""} {
+    if {$pagepath ne ""} {
         ui_debug "Opening man page '$pagepath'"
 
         # Restore our entire environment from start time.
@@ -1963,7 +1935,6 @@ proc action_log { action portlist opts } {
 
 
 proc action_info { action portlist opts } {
-    global global_variations
     set status 0
     if {[require_portlist portlist]} {
         return 1
@@ -1998,7 +1969,7 @@ proc action_info { action portlist opts } {
             # specified for the port (so we get e.g. dependencies right)
             array unset merged_variations
             array set merged_variations [array get variations]
-            foreach { variation value } [array get global_variations] {
+            foreach { variation value } [array get ::global_variations] {
                 if { ![info exists merged_variations($variation)] } {
                     set merged_variations($variation) $value
                 }
@@ -2264,9 +2235,9 @@ proc action_info { action portlist opts } {
                     if {[info exists variations($v)]} {
                         # selected by command line, prefixed with +/-
                         set varmodifier $variations($v)
-                    } elseif {[info exists global_variations($v)]} {
+                    } elseif {[info exists ::global_variations($v)]} {
                         # selected by variants.conf, prefixed with (+)/(-)
-                        set varmodifier "($global_variations($v))"
+                        set varmodifier "($::global_variations($v))"
                         # Retrieve additional information from the new key.
                     } elseif {[info exists vinfo]} {
                         array unset variant
@@ -2356,8 +2327,7 @@ proc action_location { action portlist opts } {
     }
     foreachport $portlist {
         if { [catch {set ilist [registry_installed $portname [composite_version $portversion [array get variations]]]} result] } {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             break_softcontinue "port location failed: $result" 1 status
         } else {
             # set portname again since the one we were passed may not have had the correct case
@@ -2406,7 +2376,7 @@ proc action_notes { action portlist opts } {
         # specified for the port
         array unset merged_variations
         array set merged_variations [array get variations]
-        foreach { variation value } [array get global_variations] {
+        foreach { variation value } [array get ::global_variations] {
             if { ![info exists merged_variations($variation)] } {
                 set merged_variations($variation) $value
             }
@@ -2505,8 +2475,7 @@ proc action_activate { action portlist opts } {
         }
         if {![macports::global_option_isset ports_dryrun]} {
             if { [catch {portimage::activate_composite $portname $composite_version [array get options]} result] } {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "port activate failed: $result" 1 status
             }
         } else {
@@ -2533,7 +2502,7 @@ proc action_deactivate { action portlist opts } {
             set iversion [lindex $i 1]
             set irevision [lindex $i 2]
             set ivariants [lindex $i 3]
-            if {$composite_version eq "" || $composite_version == "${iversion}_${irevision}${ivariants}"} {
+            if {$composite_version eq "" || $composite_version eq "${iversion}_${irevision}${ivariants}"} {
                 set regref [registry::entry open $portname $iversion $irevision $ivariants [lindex $i 5]]
                 if {[$regref installtype] eq "image" && [registry::run_target $regref deactivate [array get options]]} {
                     continue
@@ -2542,8 +2511,7 @@ proc action_deactivate { action portlist opts } {
         }
         if {![macports::global_option_isset ports_dryrun]} {
             if { [catch {portimage::deactivate_composite $portname $composite_version [array get options]} result] } {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "port deactivate failed: $result" 1 status
             }
         } else {
@@ -2563,7 +2531,7 @@ proc action_select { action portlist opts } {
     array unset opts_array
 
     # Error out if no group is specified or command is not --summary.
-    if {[llength $portlist] < 1 && [string map {ports_select_ ""} [lindex $commands 0]] != "summary"} {
+    if {[llength $portlist] < 1 && [string map {ports_select_ ""} [lindex $commands 0]] ne "summary"} {
         ui_error "Incorrect usage. Correct synopsis is one of:"
         ui_msg   "  port select \[--list|--show\] <group>"
         ui_msg   "  port select \[--set\] <group> <version>"
@@ -2604,8 +2572,7 @@ proc action_select { action portlist opts } {
             }
 
             if {[catch {mportselect show $group} selected_version]} {
-                global errorInfo
-                ui_debug $errorInfo
+                ui_debug $::errorInfo
                 ui_warn "Unable to get active selected version: $selected_version"
             }
 
@@ -2618,7 +2585,7 @@ proc action_select { action portlist opts } {
             ui_notice "Available versions for $group:"
             foreach v $versions {
                 ui_notice -nonewline "\t"
-                if {$selected_version == $v} {
+                if {$selected_version eq $v} {
                     ui_msg "$v (active)"
                 } else {
                     ui_msg "$v"
@@ -2720,13 +2687,11 @@ proc action_select { action portlist opts } {
 
 
 proc action_selfupdate { action portlist opts } {
-    global global_options
     if {[prefix_unwritable]} {
         return 1
     }
-    if { [catch {macports::selfupdate [array get global_options] base_updated} result ] } {
-        global errorInfo
-        ui_debug "$errorInfo"
+    if { [catch {macports::selfupdate [array get ::global_options] base_updated} result ] } {
+        ui_debug "$::errorInfo"
         ui_error "$result"
         if {![macports::ui_isset ports_verbose]} {
             ui_msg "Please run `port -v selfupdate' for details."
@@ -2763,8 +2728,7 @@ proc action_setrequested { action portlist opts } {
                 registry::property_store $regref requested $val
             }
         } else {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             break_softcontinue "$result" 1 status
         }
     }
@@ -2861,8 +2825,7 @@ proc action_dependents { action portlist opts } {
     foreachport $portlist {
         set composite_version [composite_version $portversion [array get variations]]
         if { [catch {set ilist [registry::installed $portname $composite_version]} result] } {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             break_softcontinue "$result" 1 status
         } else {
             # choose the active version if there is one
@@ -2961,7 +2924,6 @@ proc action_dependents { action portlist opts } {
 
 
 proc action_deps { action portlist opts } {
-    global global_variations
     set status 0
     if {[require_portlist portlist]} {
         return 1
@@ -3019,7 +2981,7 @@ proc action_deps { action portlist opts } {
             # specified for the port, so we get dependencies right
             array unset merged_variations
             array set merged_variations [array get variations]
-            foreach { variation value } [array get global_variations] {
+            foreach { variation value } [array get ::global_variations] {
                 if { ![info exists merged_variations($variation)] } {
                     set merged_variations($variation) $value
                 }
@@ -3233,8 +3195,7 @@ proc action_uninstall { action portlist opts } {
         }
 
         if { [catch {registry_uninstall::uninstall_composite $portname $composite_version [array get options]} result] } {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             break_softcontinue "port uninstall failed: $result" 1 status
         }
     }
@@ -3244,19 +3205,17 @@ proc action_uninstall { action portlist opts } {
 
 
 proc action_installed { action portlist opts } {
-    global private_options
     set status 0
     set restrictedList 0
     set ilist {}
 
-    if { [llength $portlist] || (![info exists private_options(ports_no_args)] || $private_options(ports_no_args) eq "no")} {
+    if {[llength $portlist] || (![info exists ::private_options(ports_no_args)] || $::private_options(ports_no_args) eq "no")} {
         set restrictedList 1
         foreachport $portlist {
             set composite_version [composite_version $portversion [array get variations]]
             if { [catch {set ilist [concat $ilist [registry::installed $portname $composite_version]]} result] } {
                 if {![string match "* not registered as installed." $result]} {
-                    global errorInfo
-                    ui_debug "$errorInfo"
+                    ui_debug "$::errorInfo"
                     break_softcontinue "port installed failed: $result" 1 status
                 }
             }
@@ -3264,8 +3223,7 @@ proc action_installed { action portlist opts } {
     } else {
         if { [catch {set ilist [registry::installed]} result] } {
             if {$result ne "Registry error: No ports registered as installed."} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 ui_error "port installed failed: $result"
                 set status 1
             }
@@ -3318,13 +3276,12 @@ proc action_installed { action portlist opts } {
 
 
 proc action_outdated { action portlist opts } {
-    global private_options
     set status 0
 
     # If port names were supplied, limit ourselves to those ports, else check all installed ports
     set ilist {}
     set restrictedList 0
-    if { [llength $portlist] || (![info exists private_options(ports_no_args)] || $private_options(ports_no_args) eq "no")} {
+    if { [llength $portlist] || (![info exists ::private_options(ports_no_args)] || $::private_options(ports_no_args) eq "no")} {
         set restrictedList 1
         foreach portspec $portlist {
             array set port $portspec
@@ -3332,8 +3289,7 @@ proc action_outdated { action portlist opts } {
             set composite_version [composite_version $port(version) $port(variants)]
             if { [catch {set ilist [concat $ilist [registry::installed $portname $composite_version]]} result] } {
                 if {![string match "* not registered as installed." $result]} {
-                    global errorInfo
-                    ui_debug "$errorInfo"
+                    ui_debug "$::errorInfo"
                     break_softcontinue "port outdated failed: $result" 1 status
                 }
             }
@@ -3341,8 +3297,7 @@ proc action_outdated { action portlist opts } {
     } else {
         if { [catch {set ilist [registry::installed]} result] } {
             if {$result ne "Registry error: No ports registered as installed."} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 ui_error "port installed failed: $result"
                 set status 1
             }
@@ -3367,8 +3322,7 @@ proc action_outdated { action portlist opts } {
 
             # Get info about the port from the index
             if {[catch {set res [mportlookup $portname]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "search for portname $portname failed: $result" 1 status
             }
             if {[llength $res] < 2} {
@@ -3403,7 +3357,7 @@ proc action_outdated { action portlist opts } {
                 set comp_result [expr {$installed_revision - $latest_revision}]
             }
             set reason ""
-            if {$epoch_comp_result != 0 && $installed_version != $latest_version} {
+            if {$epoch_comp_result != 0 && $installed_version ne $latest_version} {
                 if {($comp_result >= 0 && $epoch_comp_result < 0) || ($comp_result <= 0 && $epoch_comp_result > 0)} {
                     set reason { (epoch $installed_epoch $relation $latest_epoch)}
                 }
@@ -3414,7 +3368,7 @@ proc action_outdated { action portlist opts } {
                 set os_major_installed [registry::property_retrieve $regref os_major]
                 if {$os_platform_installed ne "" && $os_platform_installed != 0
                     && $os_major_installed ne "" && $os_major_installed != 0
-                    && ($os_platform_installed != ${macports::os_platform} || $os_major_installed != ${macports::os_major})} {
+                    && ($os_platform_installed ne ${macports::os_platform} || $os_major_installed ne ${macports::os_major})} {
                     set comp_result -1
                     set reason { (platform $os_platform_installed $os_major_installed != ${macports::os_platform} ${macports::os_major})}
                 }
@@ -3460,14 +3414,13 @@ proc action_outdated { action portlist opts } {
 
 
 proc action_contents { action portlist opts } {
-    global global_options
     if {[require_portlist portlist]} {
         return 1
     }
-    if {[info exists global_options(ports_contents_size)]} {
+    if {[info exists ::global_options(ports_contents_size)]} {
         set units {}
-        if {[info exists global_options(ports_contents_units)]} {
-            set units [complete_size_units $global_options(ports_contents_units)]
+        if {[info exists ::global_options(ports_contents_units)]} {
+            set units [complete_size_units $::global_options(ports_contents_units)]
         }
         set outstring {[format "%12s $file" [filesize $file $units]]}
     } else {
@@ -3519,12 +3472,11 @@ proc complete_size_units {units} {
 
 # Show space used by the given ports' files
 proc action_space {action portlist opts} {
-    global global_options
     require_portlist portlist
 
     set units {}
-    if {[info exists global_options(ports_space_units)]} {
-        set units [complete_size_units $global_options(ports_space_units)]
+    if {[info exists ::global_options(ports_space_units)]} {
+        set units [complete_size_units $::global_options(ports_space_units)]
     }
     set spaceall 0.0
     foreachport $portlist {
@@ -3539,7 +3491,7 @@ proc action_space {action portlist opts} {
                 }
                 if {![info exists options(ports_space_total)] || $options(ports_space_total) ne "yes"} {
                     set msg "[bytesize $space $units] $portname"
-                    if { $portversion != {} } {
+                    if {$portversion ne {}} {
                         append msg " @$portversion"
                     }
                     puts $msg
@@ -3569,8 +3521,7 @@ proc action_variants { action portlist opts } {
         if {$porturl eq ""} {
             # look up port
             if {[catch {mportlookup $portname} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "lookup of portname $portname failed: $result" 1 status
             }
             if {[llength $result] < 2} {
@@ -3672,15 +3623,14 @@ proc action_variants { action portlist opts } {
 
 
 proc action_search { action portlist opts } {
-    global private_options global_options
     set status 0
-    if {![llength $portlist] && [info exists private_options(ports_no_args)] && $private_options(ports_no_args) eq "yes"} {
+    if {![llength $portlist] && [info exists ::private_options(ports_no_args)] && $::private_options(ports_no_args) eq "yes"} {
         ui_error "You must specify a search pattern"
         return 1
     }
 
     # Copy global options as we are going to modify the array
-    array set options [array get global_options]
+    array set options [array get ::global_options]
 
     if {[info exists options(ports_search_depends)] && $options(ports_search_depends) eq "yes"} {
         array unset options ports_search_depends
@@ -3751,8 +3701,7 @@ proc action_search { action portlist opts } {
             set opt [map_friendly_field_names $opt]
 
             if {[catch {set matches [mportsearch $searchstring $filter_case $matchstyle $opt]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "search for name $portname failed: $result" 1 status
             }
 
@@ -3816,8 +3765,8 @@ proc action_search { action portlist opts } {
         if { !$portfound } {
             ui_notice "No match for $portname found"
         } elseif {[llength $res] > 1} {
-            if {(![info exists global_options(ports_search_line)]
-                    || $global_options(ports_search_line) ne "yes")} {
+            if {(![info exists ::global_options(ports_search_line)]
+                    || $::global_options(ports_search_line) ne "yes")} {
                 ui_notice "\nFound [llength $res] ports."
             }
         }
@@ -3833,19 +3782,17 @@ proc action_search { action portlist opts } {
 
 
 proc action_list { action portlist opts } {
-    global private_options
     set status 0
 
     # Default to list all ports if no portnames are supplied
-    if { ![llength $portlist] && [info exists private_options(ports_no_args)] && $private_options(ports_no_args) eq "yes"} {
+    if { ![llength $portlist] && [info exists ::private_options(ports_no_args)] && $::private_options(ports_no_args) eq "yes"} {
         add_to_portlist portlist [list name "-all-"]
     }
 
     foreachport $portlist {
         if {$portname eq "-all-"} {
            if {[catch {set res [mportlistall]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "listing all ports failed: $result" 1 status
             }
         } else {
@@ -3855,8 +3802,7 @@ proc action_list { action portlist opts } {
             }
             set search_string [regex_pat_sanitize $portname]
             if {[catch {set res [mportsearch ^$search_string\$ no]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "search for portname $search_string failed: $result" 1 status
             }
         }
@@ -3877,14 +3823,12 @@ proc action_list { action portlist opts } {
 
 
 proc action_echo { action portlist opts } {
-    global global_options
-
     # Simply echo back the port specs given to this command
     foreachport $portlist {
         if {![macports::ui_isset ports_quiet]} {
             set opts {}
             foreach { key value } [array get options] {
-                if {![info exists global_options($key)]} {
+                if {![info exists ::global_options($key)]} {
                     lappend opts "$key=$value"
                 }
             }
@@ -3907,7 +3851,6 @@ proc action_echo { action portlist opts } {
 
 proc action_portcmds { action portlist opts } {
     # Operations on the port's directory and Portfile
-    global env boot_env current_portdir
 
     array set local_options $opts
 
@@ -3922,8 +3865,7 @@ proc action_portcmds { action portlist opts } {
 
             # Verify the portname, getting portinfo to map to a porturl
             if {[catch {set res [mportlookup $portname]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "lookup of portname $portname failed: $result" 1 status
             }
             if {[llength $res] < 2} {
@@ -3958,6 +3900,7 @@ proc action_portcmds { action portlist opts } {
                     # Restore our entire environment from start time.
                     # We need it to evaluate the editor, and the editor
                     # may want stuff from it as well, like TERM.
+                    global env boot_env
                     array unset env_save; array set env_save [array get env]
                     array unset env *
                     array set env [array get boot_env]
@@ -3981,8 +3924,7 @@ proc action_portcmds { action portlist opts } {
 
                     # Invoke the editor
                     if {[catch {exec -ignorestderr >@stdout <@stdin {*}$editor $portfile} result]} {
-                        global errorInfo
-                        ui_debug "$errorInfo"
+                        ui_debug "$::errorInfo"
                         break_softcontinue "unable to invoke editor $editor: $result" 1 status
                     }
 
@@ -4007,7 +3949,7 @@ proc action_portcmds { action portlist opts } {
                 cd {
                     # Change to the port's directory, making it the default
                     # port for any future commands
-                    set current_portdir $portdir
+                    set ::current_portdir $portdir
                 }
 
                 url {
@@ -4049,8 +3991,7 @@ proc action_portcmds { action portlist opts } {
                     # Try to open a browser to the homepage for the given port
                     if { $homepage ne "" } {
                         if {[catch {system "${macports::autoconf::open_path} '$homepage'"} result]} {
-                            global errorInfo
-                            ui_debug "$errorInfo"
+                            ui_debug "$::errorInfo"
                             break_softcontinue "unable to invoke browser using ${macports::autoconf::open_path}: $result" 1 status
                         }
                     } else {
@@ -4068,12 +4009,9 @@ proc action_portcmds { action portlist opts } {
 
 
 proc action_sync { action portlist opts } {
-    global global_options
-
     set status 0
-    if {[catch {mportsync [array get global_options]} result]} {
-        global errorInfo
-        ui_debug "$errorInfo"
+    if {[catch {mportsync [array get ::global_options]} result]} {
+        ui_debug "$::errorInfo"
         ui_msg "port sync failed: $result"
         set status 1
     }
@@ -4083,7 +4021,6 @@ proc action_sync { action portlist opts } {
 
 
 proc action_target { action portlist opts } {
-    global global_variations
     set status 0
     if {[require_portlist portlist]} {
         return 1
@@ -4098,8 +4035,7 @@ proc action_target { action portlist opts } {
         if {$porturl eq ""} {
             # Verify the portname, getting portinfo to map to a porturl
             if {[catch {set res [mportlookup $portname]} result]} {
-                global errorInfo
-                ui_debug "$errorInfo"
+                ui_debug "$::errorInfo"
                 break_softcontinue "lookup of portname $portname failed: $result" 1 status
             }
             if {[llength $res] < 2} {
@@ -4123,8 +4059,8 @@ proc action_target { action portlist opts } {
 
         # Add any global_variations to the variations
         # specified for the port
-        foreach { variation value } [array get global_variations] {
-            if { ![info exists requested_variations($variation)] } {
+        foreach {variation value} [array get ::global_variations] {
+            if {![info exists requested_variations($variation)]} {
                 set requested_variations($variation) $value
             }
         }
@@ -4154,14 +4090,12 @@ proc action_target { action portlist opts } {
             }
         }
         if {[catch {set workername [mportopen $porturl [array get options] [array get requested_variations]]} result]} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             break_softcontinue "Unable to open port: $result" 1 status
         }
         if {[catch {set result [mportexec $workername $target]} result]} {
-            global errorInfo
+            ui_debug "$::errorInfo"
             mportclose $workername
-            ui_debug "$errorInfo"
             break_softcontinue "Unable to execute port: $result" 1 status
         }
 
@@ -4186,7 +4120,6 @@ proc action_target { action portlist opts } {
 
 
 proc action_mirror { action portlist opts } {
-    global macports::portdbpath
     # handle --new option here so we only delete the db once
     array set options $opts
     set mirror_filemap_path [file join $macports::portdbpath distfiles_mirror.db]
@@ -4210,15 +4143,13 @@ proc action_exit { action portlist opts } {
 # Command Parsing
 ##########################################
 proc moreargs {} {
-    global cmd_argn cmd_argc
-    return [expr {$cmd_argn < $cmd_argc}]
+    return [expr {$::cmd_argn < $::cmd_argc}]
 }
 
 
 proc lookahead {} {
-    global cmd_argn cmd_argc cmd_argv
-    if {$cmd_argn < $cmd_argc} {
-        return [lindex $cmd_argv $cmd_argn]
+    if {$::cmd_argn < $::cmd_argc} {
+        return [lindex $::cmd_argv $::cmd_argn]
     } else {
         return _EOF_
     }
@@ -4226,13 +4157,12 @@ proc lookahead {} {
 
 
 proc advance {} {
-    global cmd_argn
-    incr cmd_argn
+    incr ::cmd_argn
 }
 
 
-proc match s {
-    if {[lookahead] == $s} {
+proc match {s} {
+    if {[lookahead] eq $s} {
         advance
         return 1
     }
@@ -4246,7 +4176,6 @@ proc match s {
 #   0 none        Does not expect any text argument
 #   1 strings     Expects some strings as text argument
 #   2 ports       Wants an expanded list of ports as text argument
-global action_array
 
 # Define global constants
 const ACTION_ARGS_NONE 0
@@ -4344,12 +4273,10 @@ array set action_array [list \
 
 # Expand "action".
 # Returns an action proc, or a list of matching action procs, or the action passed in
-proc find_action { action } {
-    global action_array
-
-    if { ! [info exists action_array($action)] } {
+proc find_action {action} {
+    if {![info exists ::action_array($action)]} {
         set guess [guess_action $action]
-        if { [info exists action_array($guess)] } {
+        if {[info exists ::action_array($guess)]} {
             return $guess
         }
         return $guess
@@ -4360,28 +4287,24 @@ proc find_action { action } {
 
 # Expand action
 # If there's more than one match, return the next possibility
-proc find_action_proc { action } {
-    global action_array
-
+proc find_action_proc {action} {
     set action_proc ""
-    if { [info exists action_array($action)] } {
-        set action_proc [lindex $action_array($action) 0]
+    if {[info exists ::action_array($action)]} {
+        set action_proc [lindex $::action_array($action) 0]
     } else {
         set action [complete_action $action]
-        if { [info exists action_array($action)] } {
-            set action_proc [lindex $action_array($action) 0]
+        if {[info exists ::action_array($action)]} {
+            set action_proc [lindex $::action_array($action) 0]
         }
     }
 
     return $action_proc
 }
 
-proc get_action_proc { action } {
-    global action_array
-
+proc get_action_proc {action} {
     set action_proc ""
-    if { [info exists action_array($action)] } {
-        set action_proc [lindex $action_array($action) 0]
+    if { [info exists ::action_array($action)] } {
+        set action_proc [lindex $::action_array($action) 0]
     }
 
     return $action_proc
@@ -4394,11 +4317,9 @@ proc get_action_proc { action } {
 #   [ACTION_ARGS_STRINGS]  Expects some strings as text argument
 #   [ACTION_ARGS_PORTS]    Wants an expanded list of ports as text argument
 proc action_needs_portlist { action } {
-    global action_array
-
     set ret 0
-    if {[info exists action_array($action)]} {
-        set ret [lindex $action_array($action) 1]
+    if {[info exists ::action_array($action)]} {
+        set ret [lindex $::action_array($action) 1]
     }
 
     return $ret
@@ -4409,7 +4330,6 @@ proc action_needs_portlist { action } {
 # Syntax if {option argn}
 # Where option is the name of the option and argn specifies how many arguments
 # this argument takes
-global cmd_opts_array
 array set cmd_opts_array {
     edit        {{editor 1}}
     info        {category categories conflicts depends_fetch depends_extract
@@ -4452,18 +4372,16 @@ array set cmd_opts_array {
 # @param option the prefix of the option to check
 # @return list of pairs {name argc} for all matching options
 proc cmd_option_matches {action option} {
-    global cmd_opts_array
-
     # This could be so easy with lsearch -index,
     # but that's only available as of Tcl 8.5
 
-    if {![info exists cmd_opts_array($action)]} {
+    if {![info exists ::cmd_opts_array($action)]} {
         return {}
     }
 
     set result {}
 
-    foreach item $cmd_opts_array($action) {
+    foreach item $::cmd_opts_array($action) {
         if {[llength $item] == 1} {
             set name $item
             set argc 0
@@ -4472,7 +4390,7 @@ proc cmd_option_matches {action option} {
             set argc [lindex $item 1]
         }
 
-        if {$name == $option} {
+        if {$name eq $option} {
             set result [list [list $name $argc]]
             break
         } elseif {[string first $option $name] == 0} {
@@ -4491,10 +4409,9 @@ proc cmd_option_matches {action option} {
 #   (2) Following each command (to parse options that will be unique to that command
 #       (the global_options array is reset to global_options_base prior to each command)
 #
-proc parse_options { action ui_options_name global_options_name } {
+proc parse_options {action ui_options_name global_options_name} {
     upvar $ui_options_name ui_options
     upvar $global_options_name global_options
-    global cmdname cmd_opts_array
 
     while {[moreargs]} {
         set arg [lookahead]
@@ -4640,13 +4557,10 @@ proc lock_reg_if_needed {action} {
     return 0
 }
 
-proc process_cmd { argv } {
-    global cmd_argc cmd_argv cmd_argn \
-           global_options global_options_base private_options ui_options \
-           current_portdir
-    set cmd_argv $argv
-    set cmd_argc [llength $argv]
-    set cmd_argn 0
+proc process_cmd {argv} {
+    set ::cmd_argv $argv
+    set ::cmd_argc [llength $argv]
+    set ::cmd_argn 0
 
     set action_status 0
 
@@ -4656,12 +4570,12 @@ proc process_cmd { argv } {
         advance
 
         # Handle command separator
-        if { $action == ";" } {
+        if { $action eq ";" } {
             continue
         }
 
         # Handle a comment
-        if { [string index $action 0] == "#" } {
+        if { [string index $action 0] eq "#" } {
             while { [moreargs] } { advance }
             break
         }
@@ -4676,11 +4590,11 @@ proc process_cmd { argv } {
             break
         }
         # Always start out processing an action in current_portdir
-        cd $current_portdir
+        cd $::current_portdir
 
         # Reset global_options from base before each action, as we munge it just below...
-        array unset global_options
-        array set global_options $global_options_base
+        array unset ::global_options
+        array set ::global_options $::global_options_base
 
         # Find an action to execute
         set actions [find_action $action]
@@ -4700,9 +4614,8 @@ proc process_cmd { argv } {
         # Parse options that will be unique to this action
         # (to avoid abiguity with -variants and a default port, either -- must be
         # used to terminate option processing, or the pseudo-port current must be specified).
-        if {[catch {parse_options $action ui_options global_options} result]} {
-            global errorInfo
-            ui_debug "$errorInfo"
+        if {[catch {parse_options $action ::ui_options ::global_options} result]} {
+            ui_debug "$::errorInfo"
             ui_error $result
             set action_status 1
             break
@@ -4719,7 +4632,7 @@ proc process_cmd { argv } {
         # will then behave like
         # > list
         # if outdated expands to the empty list. See #44091, which was filed about this.
-        set private_options(ports_no_args) "no"
+        set ::private_options(ports_no_args) "no"
 
         # Parse action arguments, setting a special flag if there were none
         # We otherwise can't tell the difference between arguments that evaluate
@@ -4728,7 +4641,7 @@ proc process_cmd { argv } {
         switch -- [lookahead] {
             ;       -
             _EOF_ {
-                set private_options(ports_no_args) "yes"
+                set ::private_options(ports_no_args) "yes"
             }
             default {
                 if {[ACTION_ARGS_NONE] == $expand} {
@@ -4752,7 +4665,7 @@ proc process_cmd { argv } {
         }
 
         # execute the action
-        set action_status [$action_proc $action $portlist [array get global_options]]
+        set action_status [$action_proc $action $portlist [array get ::global_options]]
 
         # unlock if needed
         if {$locked} {
@@ -4770,51 +4683,44 @@ proc process_cmd { argv } {
 }
 
 
-proc complete_portname { text state } {
-    global complete_choices complete_position
-
+proc complete_portname {text state} {
     if {$state == 0} {
-        set complete_position 0
-        set complete_choices {}
+        set ::complete_position 0
+        set ::complete_choices {}
 
         # Build a list of ports with text as their prefix
         if {[catch {set res [mportsearch "${text}*" false glob]} result]} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             fatal "search for portname $pattern failed: $result"
         }
         foreach {name info} $res {
-            lappend complete_choices $name
+            lappend ::complete_choices $name
         }
     }
 
-    set word [lindex $complete_choices $complete_position]
-    incr complete_position
+    set word [lindex $::complete_choices $::complete_position]
+    incr ::complete_position
 
     return $word
 }
 
 
 # return text action beginning with $text
-proc complete_action { text state } {
-    global action_array complete_choices complete_position
-
+proc complete_action {text state} {
     if {$state == 0} {
-        set complete_position 0
-        set complete_choices [array names action_array "[string tolower $text]*"]
+        set ::complete_position 0
+        set ::complete_choices [array names ::action_array "[string tolower $text]*"]
     }
 
-    set word [lindex $complete_choices $complete_position]
-    incr complete_position
+    set word [lindex $::complete_choices $::complete_position]
+    incr ::complete_position
 
     return $word
 }
 
 # return all actions beginning with $text
 proc guess_action { text } {
-    global action_array
-
-    return [array names action_array "[string tolower $text]*"]
+    return [array names ::action_array "[string tolower $text]*"]
 
     if { [llength $complete_choices ] == 1 } {
         return [lindex $complete_choices 0]
@@ -4880,8 +4786,6 @@ proc get_next_cmdline { in out use_readline prompt linename } {
 
 
 proc process_command_file { in } {
-    global current_portdir
-
     # Initialize readline
     set isstdin [expr {$in eq "stdin"}]
     set use_readline [expr {$isstdin && [readline init "port"]}]
@@ -4906,7 +4810,7 @@ proc process_command_file { in } {
 
         # Calculate our prompt
         if { $noisy } {
-            set shortdir [file join {*}[lrange [file split $current_portdir] end-1 end]]
+            set shortdir [file join {*}[lrange [file split $::current_portdir] end-1 end]]
             set prompt "\[$shortdir\] > "
         } else {
             set prompt ""
@@ -5060,7 +4964,6 @@ namespace eval portclient::progress {
     #        number of units processed and $total is the total number of units
     #        to be processed. If the total is not known, it is 0.
     proc generic {action args} {
-        global env
         variable maxWidth
 
         switch -nocase -- $action {
@@ -5075,9 +4978,9 @@ namespace eval portclient::progress {
                         set barPrefix "      "
                         set barPrefixLen [string length $barPrefix]
                         if {$total != 0} {
-                            progressbar $now $total [expr {min($maxWidth, $env(COLUMNS) - $barPrefixLen)}] $barPrefix
+                            progressbar $now $total [expr {min($maxWidth, $::env(COLUMNS) - $barPrefixLen)}] $barPrefix
                         } else {
-                            unprogressbar [expr {min($maxWidth, $env(COLUMNS) - $barPrefixLen)}] $barPrefix
+                            unprogressbar [expr {min($maxWidth, $::env(COLUMNS) - $barPrefixLen)}] $barPrefix
                         }
                     }
                 }
@@ -5112,7 +5015,6 @@ namespace eval portclient::progress {
     #        size, currently transferred amount and average speed per second in
     #        bytes. Unused for "finish".
     proc download {action args} {
-        global env
         variable maxWidth
 
         switch -nocase -- $action {
@@ -5130,13 +5032,13 @@ namespace eval portclient::progress {
                             set barSuffix [format "        speed: %-13s" "[bytesize $speed {} "%.1f"]/s"]
                             set barSuffixLen [string length $barSuffix]
 
-                            set barLen [expr {min($maxWidth, $env(COLUMNS) - $barPrefixLen - $barSuffixLen)}]
+                            set barLen [expr {min($maxWidth, $::env(COLUMNS) - $barPrefixLen - $barSuffixLen)}]
                             progressbar $now $total $barLen $barPrefix $barSuffix
                         } else {
                             set barSuffix [format " %-10s     speed: %-13s" [bytesize $now {} "%6.1f"] "[bytesize $speed {} "%.1f"]/s"]
                             set barSuffixLen [string length $barSuffix]
 
-                            set barLen [expr {min($maxWidth, $env(COLUMNS) - $barPrefixLen - $barSuffixLen)}]
+                            set barLen [expr {min($maxWidth, $::env(COLUMNS) - $barPrefixLen - $barSuffixLen)}]
                             unprogressbar $barLen $barPrefix $barSuffix
                         }
                     }
@@ -5318,7 +5220,6 @@ namespace eval portclient::notifications {
     # Print port notifications.
     #
     proc display {} {
-        global env
         variable notificationsToPrint
 
         # Display notes at the end of the activation phase.
@@ -5419,7 +5320,7 @@ namespace eval portclient::questions {
     #        Custom question message. Defaults to "Continue?".
     proc ui_ask_yesno {msg name ports def {timeout 0} {question "Continue?"}} {
         # Set number default to the given letter default
-        if {$def == {y}} {
+        if {$def eq "y"} {
             set default 0
         } else {
             set default 1
@@ -5449,7 +5350,7 @@ namespace eval portclient::questions {
         }
 
         # Check for the default and print accordingly
-        if {$def == {y}} {
+        if {$def eq "y"} {
             puts -nonewline "${question} \[Y/n\]: "
             flush stdout
         } else {
@@ -5473,7 +5374,7 @@ namespace eval portclient::questions {
                 return 0
             } elseif {$input in {n N}} {
                 return 1
-            } elseif {$input == ""} {
+            } elseif {$input eq ""} {
                 return $default
             } else {
                 puts "Please enter either 'y' or 'n'."
@@ -5550,7 +5451,7 @@ namespace eval portclient::questions {
             }
             signal -restart error {TERM INT}
             # check if input is non-empty and otherwise fine
-            if {$input == ""} {
+            if {$input eq ""} {
                 return []
             }
 
@@ -5673,9 +5574,6 @@ array set private_options {}
 # We do this here to save it in the boot_env, in case we determined it manually
 term_init_size
 
-global env boot_env argv0 cmdname argc argv cmd_argc cmd_argv cmd_argn \
-       current_portdir global_options_base exit_status
-
 # Save off a copy of the environment before mportinit monkeys with it
 array set boot_env [array get env]
 
@@ -5739,8 +5637,7 @@ if { [llength $remaining_args] == 0 && ![info exists ui_options(ports_commandfil
 # This must be done following parse of global options, as some options are
 # evaluated by mportinit.
 if {[catch {mportinit ui_options global_options global_variations} result]} {
-    global errorInfo
-    puts "$errorInfo"
+    puts "$::errorInfo"
     fatal "Failed to initialize MacPorts, $result"
 }
 

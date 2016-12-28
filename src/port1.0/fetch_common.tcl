@@ -83,14 +83,14 @@ proc portfetch::assemble_url {site distfile} {
 # For a given mirror site type, e.g. "gnu" or "x11", check to see if there's a
 # pre-registered set of sites, and if so, return them.
 proc portfetch::mirror_sites {mirrors tag subdir mirrorfile} {
-    global UI_PREFIX name dist_subdir global_mirror_site
+    global name
 
     if {[file exists $mirrorfile]} {
         source $mirrorfile
     }
 
     if {![info exists portfetch::mirror_sites::sites($mirrors)]} {
-        if {$mirrors != $global_mirror_site} {
+        if {$mirrors ne $::global_mirror_site} {
             ui_warn "[format [msgcat::mc "No mirror sites on file for class %s"] $mirrors]"
         }
         return {}
@@ -121,7 +121,7 @@ proc portfetch::mirror_sites {mirrors tag subdir mirrorfile} {
         }
 
         if {$mirror_tag eq "mirror"} {
-            set thesubdir ${dist_subdir}
+            set thesubdir ${::dist_subdir}
         } elseif {$subdir eq "" && $mirror_tag ne "nosubdir"} {
             set thesubdir ${name}
         } else {
@@ -151,7 +151,6 @@ proc portfetch::mirror_sites {mirrors tag subdir mirrorfile} {
 # the name of a variable in the portfetch:: namespace containing a list of fetch
 # sites
 proc portfetch::checksites {sitelists mirrorfile} {
-    global env
     variable urlmap
 
     foreach {listname extras} $sitelists {
@@ -164,8 +163,8 @@ proc portfetch::checksites {sitelists mirrorfile} {
         set sglobal [lindex $extras 0]; set senv [lindex $extras 1]
         set full_list [set $listname]
         append full_list " $sglobal"
-        if {[info exists env($senv)]} {
-            set full_list [concat $env($senv) $full_list]
+        if {[info exists ::env($senv)]} {
+            set full_list [concat $::env($senv) $full_list]
         }
 
         set site_list [list]
@@ -193,8 +192,8 @@ proc portfetch::checksites {sitelists mirrorfile} {
                 if {$sglobal ne ""} {
                     set site_list [concat $site_list [mirror_sites $sglobal $tag "" $mirrorfile]]
                 }
-                if {[info exists env($senv)]} {
-                    set site_list [concat [list $env($senv)] $site_list]
+                if {[info exists ::env($senv)]} {
+                    set site_list [concat [list $::env($senv)] $site_list]
                 }
                 set extras_added($tag) yes
             }
@@ -212,13 +211,12 @@ proc portfetch::checksites {sitelists mirrorfile} {
 
 # sorts fetch_urls in order of ping time
 proc portfetch::sortsites {urls default_listvar} {
-    global $default_listvar
     upvar $urls fetch_urls
     variable urlmap
 
     foreach {url_var distfile} $fetch_urls {
         if {![info exists urlmap($url_var)]} {
-            if {$url_var != $default_listvar} {
+            if {$url_var ne $default_listvar} {
                 ui_error [format [msgcat::mc "No defined site for tag: %s, using $default_listvar"] $url_var]
                 set urlmap($url_var) $urlmap($default_listvar)
             } else {
@@ -255,7 +253,7 @@ proc portfetch::sortsites {urls default_listvar} {
             if { ![info exists seen($host)] } {
                 # first check the persistent cache
                 set pingtimes($host) [get_pingtime $host]
-                if {$pingtimes($host) == {}} {
+                if {$pingtimes($host) eq {}} {
                     if {[catch {set fds($host) [open "|ping -noq -c3 -t3 $host | grep round-trip | cut -d / -f 5"]}]} {
                         ui_debug "Spawning ping for $host failed"
                         # will end up after all hosts that were pinged OK but before those that didn't respond
@@ -291,7 +289,7 @@ proc portfetch::sortsites {urls default_listvar} {
                 regexp $hostregex $site -> host
             }
             # -1 means blacklisted
-            if {$pingtimes($host) != "-1"} {
+            if {$pingtimes($host) != -1} {
                 lappend pinglist [ list $site $pingtimes($host) ]
             }
         }

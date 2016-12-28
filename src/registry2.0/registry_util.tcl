@@ -61,7 +61,6 @@ proc decode_spec {specifier version revision variants} {
 ## @param [in] port  a registry::entry to check
 ## @param [in] force if true, continue even if there are dependents
 proc check_dependents {port force {action "uninstall/deactivate"}} {
-    global UI_PREFIX
     if {[$port state] eq "installed" || [llength [registry::entry imaged [$port name]]] == 1} {
         # Check if any installed ports depend on this one
         set deplist [$port dependents]
@@ -91,9 +90,9 @@ proc check_dependents {port force {action "uninstall/deactivate"}} {
                     return quit
                 }
             } else {	
-                ui_msg "$UI_PREFIX [format [msgcat::mc "Unable to %s %s @%s_%s%s, the following ports depend on it:"] $action [$port name] [$port version] [$port revision] [$port variants]]"
+                ui_msg "$::UI_PREFIX [format [msgcat::mc "Unable to %s %s @%s_%s%s, the following ports depend on it:"] $action [$port name] [$port version] [$port revision] [$port variants]]"
                 foreach depport $deplist {
-                    ui_msg "$UI_PREFIX [format [msgcat::mc "	%s @%s_%s%s"] [$depport name] [$depport version] [$depport revision] [$depport variants]]"
+                    ui_msg "$::UI_PREFIX [format [msgcat::mc "	%s @%s_%s%s"] [$depport name] [$depport version] [$depport revision] [$depport variants]]"
                 }
             }
             if { [string is true -strict $force] } {
@@ -117,8 +116,7 @@ proc run_target {port target options} {
 
     if {![catch {set mport [mportopen_installed [$port name] [$port version] [$port revision] [$port variants] $options]}]} {
         if {[catch {set result [mportexec $mport $target]} result] || $result != 0} {
-            global errorInfo
-            ui_debug "$errorInfo"
+            ui_debug "$::errorInfo"
             catch {mportclose $mport}
             ui_warn "Failed to execute portfile from registry for $portspec"
             switch $target {
@@ -139,16 +137,14 @@ proc run_target {port target options} {
                 }
             }
         } else {
-            global macports::keeplogs
-            if {(![info exists keeplogs] || !$keeplogs) && $target ne "activate"} {
+            if {(![info exists macports::keeplogs] || !$macports::keeplogs) && $target ne "activate"} {
                 catch {mportexec $mport clean}
             }
             mportclose $mport
             return 1
         }
     } else {
-        global errorInfo
-        ui_debug "$errorInfo"
+        ui_debug "$::errorInfo"
         ui_warn "Failed to open Portfile from registry for $portspec"
     }
     return 0

@@ -46,9 +46,6 @@ namespace eval registry {
 # Begin creating a new registry entry for the port version_revision+variant
 # This process assembles the directory name and creates a receipt dlist
 proc new_entry {name version {revision 0} {variants ""} {epoch 0} } {
-	global macports::registry.path macports::registry.format macports::prefix
-
-	
 	# Make sure we don't already have an entry in the Registry for this
 	# port version_revision+variants
 	if {![entry_exists $name $version $revision $variants] } {
@@ -74,20 +71,16 @@ proc new_entry {name version {revision 0} {variants ""} {epoch 0} } {
 # Check to see if an entry exists in the registry.  This is passed straight 
 # through to the receipts system
 proc entry_exists {name version {revision 0} {variants ""}} {
-	global macports::registry.format
 	return [${macports::registry.format}::entry_exists $name $version $revision $variants] 
 }
 
 # Check to see if any entry exists in the registry for the given port name.
 proc entry_exists_for_name {name} {
-	global macports::registry.format
 	return [${macports::registry.format}::entry_exists_for_name $name]
 }
 
 # Close the registry... basically wrap the receipts systems's write process
 proc write_entry {ref} {
-	global macports::registry.format
-	
 	set name [property_retrieve $ref name]
 	set version [property_retrieve $ref version]
 	set revision [property_retrieve $ref revision]
@@ -101,8 +94,6 @@ proc write_entry {ref} {
 
 # Delete an entry from the registry.
 proc delete_entry {ref} {
-	global macports::registry.format
-	
 	set name [property_retrieve $ref name]
 	set version [property_retrieve $ref version]
 	set revision [property_retrieve $ref revision]
@@ -114,30 +105,23 @@ proc delete_entry {ref} {
 
 # Open a registry entry.
 proc open_entry {name {version ""} {revision 0} {variants ""} {epoch ""}} {
-	global macports::registry.format
-
 	return [${macports::registry.format}::open_entry $name $version $revision $variants $epoch]
-
 }
 
 # Store a property with the open registry entry.
 proc property_store {ref property value} {
-	global macports::registry.format
 	${macports::registry.format}::property_store $ref $property $value
 }
 
 # Retrieve a property from the open registry entry.
 proc property_retrieve {ref property} {
-	global macports::registry.format
 	return [${macports::registry.format}::property_retrieve $ref $property]
 }
 
 # If only one version of the port is installed, this process returns that
 # version's parts.  Otherwise, it lists the versions installed and exists.
 proc installed {{name ""} {version ""}} {
-	global macports::registry.format
-
-    if {${macports::registry.format} == "receipt_flat"} {
+    if {${macports::registry.format} eq "receipt_flat"} {
         set ilist [${macports::registry.format}::installed $name $version]
         set rlist [list]
     
@@ -173,9 +157,7 @@ proc installed {{name ""} {version ""}} {
 # Return a list with the active version of a port (or the active versions of
 # all ports if name is "").
 proc active {{name ""}} {
-	global macports::registry.format
-    
-    if {${macports::registry.format} == "receipt_flat"} {
+    if {${macports::registry.format} eq "receipt_flat"} {
         set rlist [list]
         set ilist [${macports::registry.format}::installed $name]
     
@@ -231,27 +213,22 @@ proc location {portname portversion} {
 
 # File Map Code
 proc open_file_map {args} {
-	global macports::registry.format
 	return [${macports::registry.format}::open_file_map $args]
 }
 
 proc file_registered {file} {
-	global macports::registry.format
 	return [${macports::registry.format}::file_registered $file]
 }
 
 proc port_registered {name} {
-	global macports::registry.format
 	return [${macports::registry.format}::port_registered $name]
 }
 
 proc register_file {file port} {
-	global macports::registry.format
 	return [${macports::registry.format}::register_file $file $port]
 }
 
 proc register_bulk_files {files port} {
-	global macports::registry.format
 	open_file_map
         set r [${macports::registry.format}::register_bulk_files $files $port]
 	write_file_map
@@ -260,17 +237,14 @@ proc register_bulk_files {files port} {
 }
 
 proc unregister_file {file} {
-	global macports::registry.format
 	return [${macports::registry.format}::unregister_file $file]
 }
 
 proc write_file_map {args} {
-	global macports::registry.format
 	return [${macports::registry.format}::write_file_map $args]
 }
 
 proc close_file_map {args} {
-	global macports::registry.format
 	return [${macports::registry.format}::close_file_map $args]
 }
 
@@ -298,7 +272,6 @@ proc unregister_dependencies {name} {
 }
 
 proc open_dep_map {args} {
-	global macports::registry.format
 	return [${macports::registry.format}::open_dep_map $args]
 }
 
@@ -333,12 +306,10 @@ proc fileinfo_for_file {fname} {
 # flist		the list of file to get information about.
 # return a list of 6-tuples described in fileinfo_for_file.
 proc fileinfo_for_index {flist} {
-	global prefix
-
 	set rval [list]
 	foreach file $flist {
 		if {[string index $file 0] ne "/"} {
-			set file [::file join $prefix $file]
+			set file [::file join $::prefix $file]
 		}
 		lappend rval [fileinfo_for_file $file]
 	}
@@ -347,47 +318,40 @@ proc fileinfo_for_index {flist} {
 
 # List all ports this one depends on
 proc list_depends {name {version ""} {revision ""} {variants 0}} {
-	global macports::registry.format
 	return [${macports::registry.format}::list_depends $name $version $revision $variants]
 }
 
 # List all the ports that depend on this port
 proc list_dependents {name {version ""} {revision ""} {variants 0}} {
-	global macports::registry.format
 	return [${macports::registry.format}::list_dependents $name $version $revision $variants]
 }
 
 proc register_dep {dep type port} {
-	global macports::registry.format
 	return [${macports::registry.format}::register_dep $dep $type $port]
 }
 
 proc unregister_dep {dep type port} {
-	global macports::registry.format
 	return [${macports::registry.format}::unregister_dep $dep $type $port]
 }
 
 proc clean_dep_map {args} {
-    global macports::registry.format
     return [${macports::registry.format}::clean_dep_map $args]
 }
 
 proc write_dep_map {args} {
-	global macports::registry.format
 	return [${macports::registry.format}::write_dep_map $args]
 }
 
 # acquire exclusive lock on registry, do this before modifying it or reading
 # any info which will affect a decision on what to modify
 proc exclusive_lock {} {
-    global macports::registry.path
     variable lockfd
     variable nlocked
     incr nlocked
     if {$nlocked > 1} {
         return
     }
-    set lockpath [::file join ${registry.path} registry .registry.lock]
+    set lockpath [::file join ${macports::registry.path} registry .registry.lock]
     if {![info exists lockfd]} {
         if {![::file writable [::file dirname $lockpath]]} {
             # skip locking, registry can't be modified anyway
@@ -457,7 +421,7 @@ proc convert_to_sqlite {} {
         foreach f $contents {
             set fullpath [lindex $f 0]
             # strip image dir from start
-            if {[string range $fullpath 0 [expr {$idlen - 1}]] == $location} {
+            if {[string range $fullpath 0 [expr {$idlen - 1}]] eq $location} {
                 set path [string range $fullpath $idlen [string length $fullpath]]
             } else {
                 set path $fullpath

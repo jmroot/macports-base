@@ -77,7 +77,6 @@ proc activate_composite {name {v ""} {optionslist ""}} {
 
 # Activate a "Port Image"
 proc activate {name {version ""} {revision ""} {variants 0} {optionslist ""}} {
-    global macports::prefix macports::registry.path registry_open UI_PREFIX
     array set options $optionslist
     variable force
     variable noexec
@@ -88,9 +87,9 @@ proc activate {name {version ""} {revision ""} {variants 0} {optionslist ""}} {
     if {[info exists options(ports_activate_no-exec)]} {
         set noexec $options(ports_activate_no-exec)
     }
-    if {![info exists registry_open]} {
+    if {![info exists ::registry_open]} {
         registry::open [::file join ${macports::registry.path} registry registry.db]
-        set registry_open yes
+        set ::registry_open yes
     }
     set todeactivate [list]
 
@@ -130,7 +129,7 @@ proc activate {name {version ""} {revision ""} {variants 0} {optionslist ""}} {
         }
     }
 
-    ui_msg "$UI_PREFIX [format [msgcat::mc "Activating %s @%s"] $name $specifier]"
+    ui_msg "$::UI_PREFIX [format [msgcat::mc "Activating %s @%s"] $name $specifier]"
 
     _activate_contents $requested
 }
@@ -146,7 +145,6 @@ proc deactivate_composite {name {v ""} {optionslist ""}} {
 }
 
 proc deactivate {name {version ""} {revision ""} {variants 0} {optionslist ""}} {
-    global UI_PREFIX macports::registry.path registry_open
     array set options $optionslist
 
     if {[info exists options(ports_force)] && [string is true -strict $options(ports_force)] } {
@@ -157,9 +155,9 @@ proc deactivate {name {version ""} {revision ""} {variants 0} {optionslist ""}} 
     } else {
         set force 0
     }
-    if {![info exists registry_open]} {
+    if {![info exists ::registry_open]} {
         registry::open [::file join ${macports::registry.path} registry registry.db]
-        set registry_open yes
+        set ::registry_open yes
     }
 
     if {$name eq ""} {
@@ -175,8 +173,8 @@ proc deactivate {name {version ""} {revision ""} {variants 0} {optionslist ""}} 
     set name [$requested name]
     set specifier "[$requested version]_[$requested revision][$requested variants]"
 
-    if {$version ne "" && ($version != [$requested version] ||
-        ($revision ne "" && ($revision != [$requested revision] || $variants != [$requested variants])))} {
+    if {$version ne "" && ($version ne [$requested version] ||
+        ($revision ne "" && ($revision != [$requested revision] || $variants ne [$requested variants])))} {
         set v $version
         if {$revision ne ""} {
             append v _${revision}${variants}
@@ -199,14 +197,12 @@ proc deactivate {name {version ""} {revision ""} {variants 0} {optionslist ""}} 
         }
     }
 
-    ui_msg "$UI_PREFIX [format [msgcat::mc "Deactivating %s @%s"] $name $specifier]"
+    ui_msg "$::UI_PREFIX [format [msgcat::mc "Deactivating %s @%s"] $name $specifier]"
 	
     _deactivate_contents $requested [$requested files] $force
 }
 
 proc _check_registry {name version revision variants} {
-    global UI_PREFIX
-
     set searchkeys $name
     set composite_spec ""
     if {$version ne ""} {
@@ -225,7 +221,7 @@ proc _check_registry {name version revision variants} {
         set portilist {}
         set msg "The following versions of $name are currently installed:"
         if {[macports::ui_isset ports_noninteractive]} {
-            ui_msg "$UI_PREFIX [msgcat::mc $msg]"
+            ui_msg "$::UI_PREFIX [msgcat::mc $msg]"
         }
         foreach i $ilist {
             set iname [$i name]
@@ -243,9 +239,9 @@ proc _check_registry {name version revision variants} {
                 }
             } else {
                 if { [$i state] eq "installed" } {
-                    ui_msg "$UI_PREFIX [format [msgcat::mc "    %s @%s_%s%s (active)"] $iname $iversion $irevision $ivariants]"
+                    ui_msg "$::UI_PREFIX [format [msgcat::mc "    %s @%s_%s%s (active)"] $iname $iversion $irevision $ivariants]"
                 } else {
-                    ui_msg "$UI_PREFIX [format [msgcat::mc "    %s @%s_%s%s"] $iname $iversion $irevision $ivariants]"
+                    ui_msg "$::UI_PREFIX [format [msgcat::mc "    %s @%s_%s%s"] $iname $iversion $irevision $ivariants]"
                 }
             }
         }
@@ -310,7 +306,6 @@ proc _activate_file {srcfile dstfile} {
 # extract an archive to a temporary location
 # returns: path to the extracted directory
 proc extract_archive_to_tmpdir {location} {
-    global macports::registry.path
     set extractdir [mkdtemp [::file dirname $location]/mpextractXXXXXXXX]
     set startpwd [pwd]
 
@@ -433,7 +428,7 @@ proc extract_archive_to_tmpdir {location} {
         }
         
         # and finally, reinvent command_exec
-        if {${unarchive.pipe_cmd} == ""} {
+        if {${unarchive.pipe_cmd} eq ""} {
             set cmdstring "${unarchive.cmd} ${unarchive.pre_args} ${unarchive.args}"
         } else {
             set cmdstring "${unarchive.pipe_cmd} ( ${unarchive.cmd} ${unarchive.pre_args} ${unarchive.args} )"
@@ -453,7 +448,6 @@ proc extract_archive_to_tmpdir {location} {
 proc _activate_contents {port {imagefiles {}} {location {}}} {
     variable force
     variable noexec
-    global macports::prefix
 
     set files [list]
     set baksuffix .mp_[clock seconds]
@@ -484,7 +478,7 @@ proc _activate_contents {port {imagefiles {}} {location {}}} {
 
                 set owner [registry::entry owner $file]
 
-                if {$owner != {} && $owner != $port} {
+                if {$owner ne {} && $owner ne $port} {
                     # deactivate conflicting port if it is replaced_by this one
                     set result [mportlookup [$owner name]]
                     array unset portinfo
@@ -507,7 +501,7 @@ proc _activate_contents {port {imagefiles {}} {location {}}} {
                             ::file rename -force -- $file $bakfile
                             lappend backups $file
                         }
-                        if { $owner != {} } {
+                        if {$owner ne {}} {
                             $owner deactivate [list $file]
                             $owner activate [list $file] [list "${file}${baksuffix}"]
                         }
@@ -515,9 +509,9 @@ proc _activate_contents {port {imagefiles {}} {location {}}} {
                         # if we're not forcing the activation, then we bail out if
                         # we find any files that already exist, or have entries in
                         # the registry
-                        if { $owner != {} && $owner != $port } {
+                        if {$owner ne {} && $owner ne $port} {
                             throw registry::image-error "Image error: $file is being used by the active [$owner name] port.  Please deactivate this port first, or use 'port -f activate [$port name]' to force the activation."
-                        } elseif { $owner == {} && ![catch {::file type $file}] } {
+                        } elseif { $owner eq {} && ![catch {::file type $file}] } {
                             throw registry::image-error "Image error: $file already exists and does not belong to a registered port.  Unable to activate port [$port name]. Use 'port -f activate [$port name]' to force the activation."
                         }
                     }

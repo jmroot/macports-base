@@ -41,9 +41,6 @@ default portsandbox_profile {}
 # command line usage would be:
 # sandbox-exec -p '(version 1) (allow default) (deny file-write*) (allow file-write* <filter>)' some-command
 proc portsandbox::set_profile {target} {
-    global os.major portsandbox_profile workpath distpath prefix \
-        package.destpath configure.ccache ccache_dir
-
     switch $target {
         activate -
         deactivate -
@@ -52,7 +49,7 @@ proc portsandbox::set_profile {target} {
         load -
         unload -
         reload {
-            set portsandbox_profile ""
+            set ::portsandbox_profile ""
             return
         }
         install -
@@ -62,25 +59,25 @@ proc portsandbox::set_profile {target} {
         fetch -
         mirror -
         clean {
-            set allow_dirs [list $distpath]
+            set allow_dirs [list $::distpath]
         }
         pkg {
-            if {${os.major} == 12} {
+            if {${::os.major} == 12} {
                 # FIXME: fails on Mountain Lion with the current profile
-                set portsandbox_profile ""
+                set ::portsandbox_profile ""
                 return
             } else {
-                set allow_dirs [list ${package.destpath}]
+                set allow_dirs [list ${::package.destpath}]
             }
         }
     }
 
-    lappend allow_dirs $workpath ${portutil::autoconf::trace_sipworkaround_path}
-    if {${configure.ccache}} {
-        lappend allow_dirs $ccache_dir
+    lappend allow_dirs $::workpath ${portutil::autoconf::trace_sipworkaround_path}
+    if {${::configure.ccache}} {
+        lappend allow_dirs $::ccache_dir
     }
 
-    set portsandbox_profile "(version 1) (allow default) (deny file-write*) \
+    set ::portsandbox_profile "(version 1) (allow default) (deny file-write*) \
 (allow file-write-data (literal \"/dev/null\") (literal \"/dev/zero\") \
 (literal \"/dev/dtracehelper\") (literal \"/dev/tty\") \
 (literal \"/dev/stdin\") (literal \"/dev/stdout\") (literal \"/dev/stderr\") \
@@ -88,11 +85,11 @@ proc portsandbox::set_profile {target} {
 (regex #\"^(/private)?(/var)?/tmp/\" #\"^(/private)?/var/folders/\"))"
 
     foreach dir $allow_dirs {
-        append portsandbox_profile " (allow file-write* ("
-        if {${os.major} > 9} {
-            append portsandbox_profile "subpath \"${dir}\"))"
+        append ::portsandbox_profile " (allow file-write* ("
+        if {${::os.major} > 9} {
+            append ::portsandbox_profile "subpath \"${dir}\"))"
         } else {
-            append portsandbox_profile "regex #\"^${dir}/\"))"
+            append ::portsandbox_profile "regex #\"^${dir}/\"))"
         }
     }
 }

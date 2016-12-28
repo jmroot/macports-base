@@ -109,8 +109,6 @@ proc uninstall_composite {portname {v ""} {optionslist ""}} {
 }
 
 proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""}} {
-    global uninstall.force uninstall.nochecksum UI_PREFIX \
-           macports::portimagefilepath macports::registry.path
     array set options $optionslist
     if {[info exists options(subport)]} {
         # don't want this set when calling registry::run_target
@@ -118,12 +116,12 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
         set optionslist [array get options]
     }
 
-    if {![info exists uninstall.force]} {
-        set uninstall.force no
+    if {![info exists ::uninstall.force]} {
+        set ::uninstall.force no
     }
     # If global forcing is on, make it the same as a local force flag.
     if {[info exists options(ports_force)] && [string is true -strict $options(ports_force)]} {
-        set uninstall.force yes
+        set ::uninstall.force yes
     }
     # if no-exec is set for uninstall, set for deactivate too
     if {[info exists options(ports_uninstall_no-exec)]} {
@@ -148,7 +146,7 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
         set portname [[lindex $ilist 0] name]
         set msg "The following versions of $portname are currently installed:"
         if {[macports::ui_isset ports_noninteractive]} {
-            ui_msg "$UI_PREFIX [msgcat::mc $msg]"
+            ui_msg "$::UI_PREFIX [msgcat::mc $msg]"
         }
         set sortedlist [portlist_sortint $ilist]
         foreach i $sortedlist {
@@ -164,9 +162,9 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
                 }
             } else {
                 if {[$i state] eq "installed"} {
-                    ui_msg "$UI_PREFIX [format [msgcat::mc "    %s @%s (active)"] [$i name] $ispec]"
+                    ui_msg "$::UI_PREFIX [format [msgcat::mc "    %s @%s (active)"] [$i name] $ispec]"
                 } else {
-                    ui_msg "$UI_PREFIX [format [msgcat::mc "    %s @%s"] [$i name] $ispec]"
+                    ui_msg "$::UI_PREFIX [format [msgcat::mc "    %s @%s"] [$i name] $ispec]"
                 }
             }
         }
@@ -215,7 +213,7 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
         }
     } else {
         # check its dependents
-        set userinput [registry::check_dependents $port ${uninstall.force} "uninstall"]
+        set userinput [registry::check_dependents $port ${::uninstall.force} "uninstall"]
         if {$userinput eq "quit"} {
             return 0
         }
@@ -251,7 +249,7 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
             set uports [list [list $portname $version $revision $variants]]
         }
     } else {
-        ui_msg "$UI_PREFIX [format [msgcat::mc "Uninstalling %s @%s"] $portname $composite_spec]"
+        ui_msg "$::UI_PREFIX [format [msgcat::mc "Uninstalling %s @%s"] $portname $composite_spec]"
 
         # Get the full path to the image file
         set ref $port
@@ -274,13 +272,13 @@ proc uninstall {portname {version ""} {revision ""} {variants 0} {optionslist ""
             registry::entry delete $port
         }
 
-        set portfile_path [file join ${registry.path} registry portfiles ${portname}-${version}_${revision} $portfile]
+        set portfile_path [file join ${macports::registry.path} registry portfiles ${portname}-${version}_${revision} $portfile]
         if {[registry::entry search portfile $portfile] eq {}} {
             file delete -force $portfile_path
             catch {file delete [file dirname $portfile_path]}
         }
 
-        set reg_portgroups_dir [file join ${registry.path} registry portgroups]
+        set reg_portgroups_dir [file join ${macports::registry.path} registry portgroups]
         foreach pg $portgroups {
             set pgname [lindex $pg 0]
             set pgversion [lindex $pg 1]

@@ -117,12 +117,11 @@ proc portlint::seems_utf8 {str} {
 
 
 proc portlint::lint_start {args} {
-    global UI_PREFIX subport
-    ui_notice "$UI_PREFIX [format [msgcat::mc "Verifying Portfile for %s"] ${subport}]"
+    ui_notice "$::UI_PREFIX [format [msgcat::mc "Verifying Portfile for %s"] ${::subport}]"
 }
 
 proc portlint::lint_main {args} {
-    global UI_PREFIX name portpath porturl ports_lint_nitpick
+    global name portpath porturl
     set portfile ${portpath}/Portfile
     set portdirs [split ${portpath} /]
     set last [llength $portdirs]
@@ -137,7 +136,7 @@ proc portlint::lint_main {args} {
     ###################################################################
     ui_debug "$portfile"
     
-    if {[info exists ports_lint_nitpick] && $ports_lint_nitpick eq "yes"} {
+    if {[tbool ::ports_lint_nitpick]} {
         set nitpick true
     } else {
         set nitpick false
@@ -715,7 +714,7 @@ proc portlint::lint_main {args} {
 
     ###################################################################
 
-    ui_notice "$UI_PREFIX [format [msgcat::mc "%d errors and %d warnings found."] $errors $warnings]"
+    ui_notice "$::UI_PREFIX [format [msgcat::mc "%d errors and %d warnings found."] $errors $warnings]"
 
     return {$errors > 0}
 }

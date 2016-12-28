@@ -70,21 +70,19 @@ options_export name version revision epoch categories maintainers platforms desc
 
 default subport {[portmain::get_default_subport]}
 proc portmain::get_default_subport {} {
-    global name portpath
-    if {[info exists name]} {
-        return $name
+    if {[info exists ::name]} {
+        return $::name
     }
-    return [file tail $portpath]
+    return [file tail $::portpath]
 }
 default subbuildpath {[portmain::get_subbuildpath]}
 proc portmain::get_subbuildpath {} {
-    global portpath portbuildpath subport
-    if {$subport ne ""} {
-        set subdir $subport
+    if {$::subport ne ""} {
+        set subdir $::subport
     } else {
-        set subdir [file tail $portpath]
+        set subdir [file tail $::portpath]
     }
-    return [file normalize [file join $portbuildpath $subdir]]
+    return [file normalize [file join $::portbuildpath $subdir]]
 }
 default workpath {[getportworkpath_from_buildpath $subbuildpath]}
 default prefix /opt/local
