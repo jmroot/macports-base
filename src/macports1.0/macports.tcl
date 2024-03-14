@@ -1723,6 +1723,9 @@ match macports.conf.default."
     # load variant descriptions file on demand
     trace add variable macports::default_variant_descriptions read macports::load_default_variant_descriptions
 
+    # Create base portfile interpreter on demand
+    trace add variable macports::base_worker read macports::create_base_worker
+
     if {![info exists ui_options(ports_no_old_index_warning)]} {
         set default_source_url [lindex $sources_default 0]
         if {[macports::getprotocol $default_source_url] eq "file" || [macports::getprotocol $default_source_url] eq "rsync"} {
@@ -1803,16 +1806,24 @@ proc macports::copy_xcode_plist {target_homedir} {
     }
 }
 
-proc macports::worker_init {workername portpath porturl portbuildpath options variations} {
-    variable portinterp_options; variable portinterp_deferred_options
-    variable ui_priorities; variable ui_options
+proc macports::create_base_worker {name1 name2 op} {
+    variable base_worker
+    trace remove variable base_worker read macports::create_base_worker
 
-    # Hide any Tcl commands that should be inaccessible to port1.0 and Portfiles
-    # exit: It should not be possible to exit the interpreter
-    interp hide $workername exit
+    set workername [interp create]
 
-    # cd: This is necessary for some code in port1.0, but should be hidden
-    interp eval $workername [list rename cd _cd]
+    foreach pkgName {macports_threadutil mpcommon signalcatch Ttrace} {
+        foreach pkgVers [package versions $pkgName] {
+            set pkgLoadScript [package ifneeded $pkgName $pkgVers]
+            $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
+        }
+    }
+    interp eval $workername [list package require macports_threadutil]
+    interp eval $workername [list package require Ttrace]
+    # Ttrace breaks if catch is renamed by it
+    interp eval $workername [list package require mpcommon]
+    # Start tracing intepreter changes
+    interp eval $workername [list ttrace::enable]
 
     # Tell the sub interpreter about commonly needed Tcl packages we
     # already know about so it won't glob for packages.
@@ -1825,17 +1836,51 @@ proc macports::worker_init {workername portpath porturl portbuildpath options va
                      portreload portsandbox portstartupitem porttest
                      porttrace portunarchive portuninstall portunload
                      portutil cmdline fetch_common fileutil machista msgcat
-                     Pextlib macports_dlist macports_util mpcommon
-                     mp_package signalcatch Thread} {
+                     Pextlib macports_dlist macports_util mp_package Thread} {
+        foreach pkgVers [package versions $pkgName] {
+            set pkgLoadScript [package ifneeded $pkgName $pkgVers]
+            $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
+        }
+    }
+    interp eval $workername [list macports_threadutil::init_capture]
+    interp eval $workername [list package require port]
+
+    interp eval $workername [list ttrace::disable]
+    interp eval $workername [list macports_threadutil::cache_vars]
+    set base_worker $workername
+}
+
+proc macports::worker_init {workername portpath porturl portbuildpath options variations} {
+    variable portinterp_options; variable portinterp_deferred_options
+    variable ui_priorities; variable ui_options; variable base_worker
+
+    foreach pkgName {macports_threadutil mpcommon signalcatch Ttrace} {
         foreach pkgVers [package versions $pkgName] {
             set pkgLoadScript [package ifneeded $pkgName $pkgVers]
             $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
         }
     }
 
+    # Set all variables from base_worker (Ttrace doesn't)
+    # Doing this before loading Ttrace so traces for e.g. defaults
+    # won't be triggered when setting the variables.
+    interp eval $workername [list package require macports_threadutil]
+    interp alias $workername macports_threadutil::getbasevars $base_worker macports_threadutil::getvars
+    interp eval $workername {macports_threadutil::setvars [macports_threadutil::getbasevars]}
+
+    interp eval $workername [list package require mpcommon]
+    interp eval $workername [list package require Ttrace]
+    interp eval $workername [list ttrace::update]
+
+    # Hide any Tcl commands that should be inaccessible to port1.0 and Portfiles
+    # exit: It should not be possible to exit the interpreter
+    interp hide $workername exit
+
+    # cd: This is necessary for some code in port1.0, but should be hidden
+    interp eval $workername [list rename cd _cd]
+
     # Create package require abstraction procedure
     $workername eval [list proc PortSystem {version} {
-            package require port $version
             portmain::report_platform_info
         }]
 
