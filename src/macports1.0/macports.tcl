@@ -1812,19 +1812,6 @@ proc macports::create_base_worker {name1 name2 op} {
 
     set workername [interp create]
 
-    foreach pkgName {macports_threadutil mpcommon signalcatch Ttrace} {
-        foreach pkgVers [package versions $pkgName] {
-            set pkgLoadScript [package ifneeded $pkgName $pkgVers]
-            $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
-        }
-    }
-    interp eval $workername [list package require macports_threadutil]
-    interp eval $workername [list package require Ttrace]
-    # Ttrace breaks if catch is renamed by it
-    interp eval $workername [list package require mpcommon]
-    # Start tracing intepreter changes
-    interp eval $workername [list ttrace::enable]
-
     # Tell the sub interpreter about commonly needed Tcl packages we
     # already know about so it won't glob for packages.
     foreach pkgName {port portactivate portarchivefetch portbuild portbump
@@ -1836,17 +1823,19 @@ proc macports::create_base_worker {name1 name2 op} {
                      portreload portsandbox portstartupitem porttest
                      porttrace portunarchive portuninstall portunload
                      portutil cmdline fetch_common fileutil machista msgcat
-                     Pextlib macports_dlist macports_util mp_package Thread} {
+                     Pextlib macports_dlist macports_threadutil macports_util
+                     mpcommon mp_package signalcatch Thread} {
         foreach pkgVers [package versions $pkgName] {
             set pkgLoadScript [package ifneeded $pkgName $pkgVers]
             $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
         }
     }
+
+    interp eval $workername [list package require macports_threadutil]
     interp eval $workername [list macports_threadutil::init_capture]
     interp eval $workername [list package require port]
-
-    interp eval $workername [list ttrace::disable]
     interp eval $workername [list macports_threadutil::cache_vars]
+
     set base_worker $workername
 }
 
@@ -1854,23 +1843,45 @@ proc macports::worker_init {workername portpath porturl portbuildpath options va
     variable portinterp_options; variable portinterp_deferred_options
     variable ui_priorities; variable ui_options; variable base_worker
 
-    foreach pkgName {macports_threadutil mpcommon signalcatch Ttrace} {
+    foreach pkgName {macports_threadutil mpcommon signalcatch} {
         foreach pkgVers [package versions $pkgName] {
             set pkgLoadScript [package ifneeded $pkgName $pkgVers]
             $workername eval [list package ifneeded $pkgName $pkgVers $pkgLoadScript]
         }
     }
 
-    # Set all variables from base_worker (Ttrace doesn't)
-    # Doing this before loading Ttrace so traces for e.g. defaults
-    # won't be triggered when setting the variables.
+    # Set all variables from base_worker
     interp eval $workername [list package require macports_threadutil]
     interp alias $workername macports_threadutil::getbasevars $base_worker macports_threadutil::getvars
     interp eval $workername {macports_threadutil::setvars [macports_threadutil::getbasevars]}
 
+    # Need to import mpcommon explicitly because it renames catch
     interp eval $workername [list package require mpcommon]
-    interp eval $workername [list package require Ttrace]
-    interp eval $workername [list ttrace::update]
+    # And Pextlib because it provides commands that are not procs
+    interp eval $workername [list package require Pextlib]
+    # Set up lazy loading of procs from base_worker
+    interp alias $workername macports_threadutil::getbaseproc $base_worker macports_threadutil::getproc
+    interp eval $workername [list rename unknown _tcl_unknown]
+    interp eval $workername [list proc unknown {args} {
+        set procname [lindex $args 0]
+        if {[namespace qualifiers $procname] eq {}} {
+            # Unqualified name, try the current namespace first if not global
+            set namespace [uplevel 1 [list namespace current]]
+            if {$namespace ne "::"} {
+                set baseproc [macports_threadutil::getbaseproc ${namespace}::$procname]
+                if {$baseproc ne {}} {
+                    uplevel #0 [list proc ${namespace}::$procname {*}$baseproc]
+                    return [uplevel 1 $args]
+                }
+            }
+        }
+        set baseproc [macports_threadutil::getbaseproc $procname]
+        if {$baseproc ne {}} {
+            uplevel #0 [list proc $procname {*}$baseproc]
+            return [uplevel 1 $args]
+        }
+        uplevel 1 [list _tcl_unknown {*}$args]
+    }]
 
     # Hide any Tcl commands that should be inaccessible to port1.0 and Portfiles
     # exit: It should not be possible to exit the interpreter

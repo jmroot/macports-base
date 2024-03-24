@@ -6,6 +6,7 @@ namespace eval macports_threadutil {
     variable varcache
     variable aliases [list]
     variable traced_vars [dict create]
+    variable proccache [dict create]
 
     # Record all namespaces, scalar variables, variable traces and
     # arrays that exist in the current interpreter.
@@ -86,5 +87,27 @@ namespace eval macports_threadutil {
         if {[llength $cmdstring] == 6 && [lindex $cmdstring 2] eq "variable" && [lindex $cmdstring 1] eq "add"} {
             dict set traced_vars [uplevel 1 [list namespace which -variable [lindex $cmdstring 3]]] 1
         }
+    }
+
+    proc getproc {procname} {
+        variable proccache
+        # Use fully-qualified name for proc
+        set procname [namespace eval :: [list namespace which -command $procname]]
+        if {$procname eq {}} {
+            return {}
+        }
+        if {[dict exists $proccache $procname]} {
+            return [dict get $proccache $procname]
+        }
+        set ret {}
+        catch {
+            set arglist [lmap arg [info args $procname] {
+                expr {[info default $procname $arg thedefault] ?
+                        [list $arg $thedefault] : $arg}
+            }]
+            dict set proccache $procname [list $arglist [info body $procname]]
+            set ret [dict get $proccache $procname]
+        }
+        return $ret
     }
 }
